@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>泡泡竞技场 v7.0 · P2P线路诊断版</title>
+<title>泡泡竞技场 v7.1 · P2P线路剖析版</title>
 <style>
   :root{
     --bg:#8fe8ff;
@@ -123,13 +123,27 @@
   .lobby-view{display:none;gap:12px}.lobby-view.show{display:grid}.room-code-box{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:17px;background:#eefaff}.room-code-box small{display:block;color:#7d9aa8;font-size:10px;font-weight:800}.room-code-box b{font-size:28px;letter-spacing:.12em;color:#4d759d}.player-list{display:grid;gap:7px}.player-chip{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:13px;background:#fff}.player-dot{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.75),0 2px 5px rgba(37,85,106,.15)}.player-chip b{font-size:13px;color:#4d7488}.player-chip small{margin-left:auto;color:#91a7b1;font-size:10px}.fillbots-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:14px;background:#fff7df;color:#6f765f;font-size:12px;font-weight:900}.fillbots-row input{width:20px;height:20px;accent-color:#7569ed}.online-note{font-size:10px;line-height:1.5;color:#86a0ac}
   @media(max-width:520px){.online-card{padding:16px;border-radius:23px}.online-row{grid-template-columns:1fr}.online-head h2{font-size:20px}.room-code-box b{font-size:24px}}
 
+
+  .online-status{cursor:pointer;user-select:none}.online-status:hover{filter:brightness(.98)}
+  .diag-open-btn{height:42px;border-radius:13px;background:#edf9ff;color:#39758f;font-size:12px;font-weight:1000;box-shadow:0 4px 0 #c5e7f2}
+  .diag-open-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #c5e7f2}
+  .netdiag-panel{display:none;position:fixed;z-index:180;inset:0;background:rgba(29,67,88,.48);backdrop-filter:blur(8px);padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));place-items:center}.netdiag-panel.show{display:grid}
+  .netdiag-card{width:min(94vw,640px);max-height:min(91dvh,780px);overflow:auto;background:#f7fcff;border:4px solid #fff;border-radius:26px;padding:18px;box-shadow:0 24px 70px rgba(25,64,84,.30);display:grid;gap:13px}
+  .netdiag-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.netdiag-head h2{margin:0;color:#326e88;font-size:22px}.netdiag-close{width:36px;height:36px;border-radius:12px;background:#e9f8ff;color:#63889a;font-size:22px;font-weight:1000}
+  .diag-verdict{padding:12px 13px;border-radius:15px;background:#edf9ff;color:#426f84;font-size:12px;font-weight:900;line-height:1.55}.diag-verdict.good{background:#edfbee;color:#3f7851}.diag-verdict.warn{background:#fff7df;color:#876d3d}.diag-verdict.bad{background:#fff0f1;color:#9c5361}
+  .diag-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.diag-cell{min-width:0;background:#fff;border-radius:15px;padding:10px;box-shadow:0 4px 12px rgba(46,101,128,.07)}.diag-cell small{display:block;color:#88a1ad;font-size:10px;font-weight:800;margin-bottom:3px}.diag-cell b{display:block;color:#3c7188;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.diag-cell b.small{font-size:12px;white-space:normal;line-height:1.35}
+  .diag-section{background:#fff;border-radius:16px;padding:11px 12px;display:grid;gap:7px}.diag-section h3{font-size:12px;color:#537f93;margin:0}.diag-line{display:grid;grid-template-columns:128px 1fr;gap:10px;font-size:11px;line-height:1.4}.diag-line span{color:#91a6b0}.diag-line b{color:#496f81;overflow-wrap:anywhere}
+  .diag-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.diag-actions button{height:42px;border-radius:13px;font-size:12px;font-weight:1000}.diag-reset{background:#edf7fb;color:#5c8091}.diag-close-bottom{background:#7669ec;color:#fff}
+  .diag-note{font-size:10px;line-height:1.55;color:#829ba7;background:#eef8fc;border-radius:13px;padding:9px 10px}
+  @media(max-width:520px){.netdiag-card{padding:14px;border-radius:22px}.diag-grid{grid-template-columns:repeat(2,1fr)}.diag-line{grid-template-columns:105px 1fr}.netdiag-head h2{font-size:18px}}
+
 </style>
 </head>
 <body>
 <div class="shell">
   <section class="game-card">
     <div class="topbar">
-      <div class="brand"><div class="logo">💧</div><div><h1>泡泡竞技场</h1><div class="sub">v7.0 P2P线路诊断 · WebRTC直连测速 · 当前战斗仍由服务器权威同步</div></div></div>
+      <div class="brand"><div class="logo">💧</div><div><h1>泡泡竞技场</h1><div class="sub">v7.1 P2P线路剖析 · RTT / 抖动 / 丢包 / ICE路径 · 当前战斗仍走服务器</div></div></div>
       <div class="actions"><span class="online-status" id="onlineStatus">联机</span><button class="pillbtn" id="onlineBtn">🌐 联机</button><button class="pillbtn mobile-settings-btn" id="mobileSettingsBtn" aria-expanded="false" aria-controls="mobileSettings">⚙️ 设置</button><button class="pillbtn diffbtn" id="difficultyBtn">AI 普通</button><button class="pillbtn" id="restartBtn">↻ 重开</button><button class="pillbtn" id="soundBtn">🔊</button></div>
     </div>
     <div class="mobile-settings-panel" id="mobileSettings" aria-hidden="true">
@@ -188,7 +202,7 @@
       <div class="legend-row"><div class="legend-icon">📡</div><span>遥控：E / 按钮引爆自己的遥控泡泡</span></div>
       <div class="legend-row"><div class="legend-icon">🛡️</div><span>护盾：抵挡一次爆炸伤害</span></div>
     </div>
-    <div class="tip">v7.0 P2P线路诊断：创建 4 位房间号后可让远端玩家加入。服务器统一计算移动、炸弹、道具和胜负；单机 AI 模式仍保留。手机按钮、摇杆、飞踢辅助与操作设置继续可用。</div>
+    <div class="tip">v7.1 P2P线路剖析：创建 4 位房间号后可让远端玩家加入。服务器统一计算移动、炸弹、道具和胜负；单机 AI 模式仍保留。手机按钮、摇杆、飞踢辅助与操作设置继续可用。</div>
   </aside>
 </div>
 
@@ -206,10 +220,40 @@
       <div class="room-code-box"><div><small>房间号 · 分享给朋友</small><b id="roomCodeLabel">----</b></div><button class="online-secondary" id="copyRoomBtn" style="width:88px">复制</button></div>
       <div class="player-list" id="onlinePlayerList"></div>
       <label class="fillbots-row"><span>🤖 AI 自动补满 4 人</span><input id="fillBotsToggle" type="checkbox" checked /></label>
+      <button class="diag-open-btn" id="diagOpenBtn">📶 查看 P2P 线路剖析</button>
       <div class="online-row"><button class="online-primary" id="startOnlineBtn">开始联机对战</button><button class="online-secondary" id="leaveRoomBtn">离开房间</button></div>
       <div class="online-note">房主负责开始；游戏开始后断线的玩家会留在本局但停止移动。v6.2 已加入本地移动预测、Ping 测量和低延迟同步；服务器仍保留最终判定权。</div>
     </div>
     <div class="online-message" id="onlineMessage">等待连接服务器…</div>
+  </section>
+</div>
+
+
+<div class="netdiag-panel" id="netDiagPanel" aria-hidden="true">
+  <section class="netdiag-card" role="dialog" aria-modal="true" aria-labelledby="netDiagTitle">
+    <div class="netdiag-head"><h2 id="netDiagTitle">📶 P2P 线路剖析</h2><button class="netdiag-close" id="netDiagClose" aria-label="关闭">×</button></div>
+    <div class="diag-verdict" id="diagVerdict">等待第二位玩家建立 P2P 连接…</div>
+    <div class="diag-grid">
+      <div class="diag-cell"><small>服务器 RTT</small><b id="diagServerRtt">--</b></div>
+      <div class="diag-cell"><small>P2P 当前 RTT</small><b id="diagP2pRtt">--</b></div>
+      <div class="diag-cell"><small>WebRTC 底层 RTT</small><b id="diagNativeRtt">--</b></div>
+      <div class="diag-cell"><small>P2P 平均</small><b id="diagAvg">--</b></div>
+      <div class="diag-cell"><small>P2P 最低</small><b id="diagMin">--</b></div>
+      <div class="diag-cell"><small>P95</small><b id="diagP95">--</b></div>
+      <div class="diag-cell"><small>抖动</small><b id="diagJitter">--</b></div>
+      <div class="diag-cell"><small>探测丢包</small><b id="diagLoss">--</b></div>
+      <div class="diag-cell"><small>样本数</small><b id="diagSamples">0</b></div>
+    </div>
+    <div class="diag-section"><h3>ICE / 传输路径</h3>
+      <div class="diag-line"><span>连接模式</span><b id="diagPath">--</b></div>
+      <div class="diag-line"><span>本地 Candidate</span><b id="diagLocalCandidate">--</b></div>
+      <div class="diag-line"><span>远端 Candidate</span><b id="diagRemoteCandidate">--</b></div>
+      <div class="diag-line"><span>传输协议</span><b id="diagProtocol">--</b></div>
+      <div class="diag-line"><span>浏览器网络提示</span><b id="diagNetwork">--</b></div>
+      <div class="diag-line"><span>ICE 状态</span><b id="diagIceState">--</b></div>
+    </div>
+    <div class="diag-note">测试建议：保持房间连接至少 30～60 秒。你这边使用蜂窝流量、另一位玩家使用家庭 Wi‑Fi 时，两台设备各截图一次本面板。这里不会显示公网 IP，只显示线路类型与统计值。</div>
+    <div class="diag-actions"><button class="diag-reset" id="diagResetBtn">重新采样</button><button class="diag-close-bottom" id="diagCloseBottom">关闭</button></div>
   </section>
 </div>
 
@@ -249,8 +293,10 @@
   const onlineName=document.getElementById('onlineName'), onlineRoomInput=document.getElementById('onlineRoomInput'), roomCodeLabel=document.getElementById('roomCodeLabel');
   const onlinePlayerList=document.getElementById('onlinePlayerList'), fillBotsToggle=document.getElementById('fillBotsToggle'), startOnlineBtn=document.getElementById('startOnlineBtn');
   const restartHint=document.querySelector('.restart-hint');
+  const netDiagPanel=document.getElementById('netDiagPanel'), diagVerdict=document.getElementById('diagVerdict');
+  const diagEls={server:document.getElementById('diagServerRtt'),p2p:document.getElementById('diagP2pRtt'),native:document.getElementById('diagNativeRtt'),avg:document.getElementById('diagAvg'),min:document.getElementById('diagMin'),p95:document.getElementById('diagP95'),jitter:document.getElementById('diagJitter'),loss:document.getElementById('diagLoss'),samples:document.getElementById('diagSamples'),path:document.getElementById('diagPath'),local:document.getElementById('diagLocalCandidate'),remote:document.getElementById('diagRemoteCandidate'),protocol:document.getElementById('diagProtocol'),network:document.getElementById('diagNetwork'),ice:document.getElementById('diagIceState')};
   let onlineMode=false;
-  const net={ws:null,id:null,room:null,hostId:null,connected:false,lastInput:'',lastStateAt:0,rtt:0,pingTimer:null,lastPingSent:0,inputSeq:0,rtc:null,rtcDc:null,rtcPeerId:null,rtcRtt:0,rtcPath:'',rtcState:'未连接',rtcPingTimer:null,rtcPingSeq:0,rtcPending:new Map()};
+  const net={ws:null,id:null,room:null,hostId:null,connected:false,lastInput:'',lastStateAt:0,rtt:0,pingTimer:null,lastPingSent:0,inputSeq:0,serverSamples:[],rtc:null,rtcDc:null,rtcPeerId:null,rtcRtt:0,rtcNativeRtt:0,rtcPath:'',rtcState:'未连接',rtcPingTimer:null,rtcStatsTimer:null,rtcPingSeq:0,rtcPending:new Map(),rtcSamples:[],rtcSent:0,rtcRecv:0,rtcLost:0,rtcDiag:{}};
   const MOBILE_SETTINGS_KEY='paopao-arena-v5.4-mobile-settings', LEGACY_MOBILE_SETTINGS_KEY='paopao-arena-v5.3-mobile-settings';
 
   const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -262,6 +308,58 @@
   const perpendicular=(a,b)=>a&&b&&(a.x*b.x+a.y*b.y===0)&&!(a.x===0&&a.y===0)&&!(b.x===0&&b.y===0);
   const nearestCenter=v=>Math.round(v-.5)+.5;
 
+  function sampleSummary(samples){
+    const a=(samples||[]).filter(Number.isFinite);if(!a.length)return {avg:0,min:0,p95:0,jitter:0,n:0};
+    const sorted=[...a].sort((x,y)=>x-y),avg=a.reduce((m,v)=>m+v,0)/a.length;
+    const variance=a.reduce((m,v)=>m+(v-avg)*(v-avg),0)/a.length;
+    return {avg,min:sorted[0],p95:sorted[Math.min(sorted.length-1,Math.ceil(sorted.length*.95)-1)],jitter:Math.sqrt(variance),n:a.length};
+  }
+  function fmtMs(v){return Number.isFinite(v)&&v>0?`${Math.round(v)}ms`:'--';}
+  function connectionHint(){
+    const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;if(!c)return '浏览器未提供 Network Information API';
+    const parts=[];if(c.type)parts.push(c.type);if(c.effectiveType)parts.push(c.effectiveType);if(Number.isFinite(c.rtt))parts.push(`估计RTT ${c.rtt}ms`);if(Number.isFinite(c.downlink))parts.push(`下行 ${c.downlink}Mbps`);if(c.saveData)parts.push('省流量模式');return parts.join(' · ')||'网络信息不可用';
+  }
+  function setNetDiagOpen(open){netDiagPanel.classList.toggle('show',!!open);netDiagPanel.setAttribute('aria-hidden',open?'false':'true');if(open)renderNetDiag();}
+  function resetNetDiagSamples(){
+    net.rtcSamples=[];net.serverSamples=[];net.rtcSent=0;net.rtcRecv=0;net.rtcLost=0;net.rtcPending.clear();renderNetDiag();
+  }
+  function renderNetDiag(){
+    const r=sampleSummary(net.rtcSamples),s=sampleSummary(net.serverSamples),d=net.rtcDiag||{};
+    diagEls.server.textContent=fmtMs(s.avg||net.rtt);diagEls.p2p.textContent=fmtMs(net.rtcRtt);diagEls.native.textContent=fmtMs(net.rtcNativeRtt);
+    diagEls.avg.textContent=fmtMs(r.avg);diagEls.min.textContent=fmtMs(r.min);diagEls.p95.textContent=fmtMs(r.p95);diagEls.jitter.textContent=fmtMs(r.jitter);
+    const finished=net.rtcRecv+net.rtcLost;const loss=finished?net.rtcLost/finished*100:0;diagEls.loss.textContent=finished?`${loss.toFixed(loss<1?1:0)}%`:'--';diagEls.samples.textContent=String(r.n);
+    diagEls.path.textContent=net.rtcPath||net.rtcState||'--';diagEls.local.textContent=d.localText||'--';diagEls.remote.textContent=d.remoteText||'--';diagEls.protocol.textContent=d.protocolText||'--';diagEls.network.textContent=connectionHint();diagEls.ice.textContent=net.rtc?`${net.rtc.iceConnectionState||'?'} / ${net.rtc.connectionState||'?'}`:'--';
+    let text='等待第二位玩家建立 P2P 连接…',cls='';
+    if(r.n>=3){
+      if(loss>=5||r.jitter>=45||r.avg>=180){text=`线路偏差：平均 ${Math.round(r.avg)}ms，抖动 ${Math.round(r.jitter)}ms，丢包 ${loss.toFixed(0)}%。优先考虑广州 TURN/中继对照测试。`;cls='bad';}
+      else if(r.avg<=60&&r.jitter<=20&&loss<2){text=`线路很好：平均 ${Math.round(r.avg)}ms，抖动 ${Math.round(r.jitter)}ms。适合直接把实时战斗切到 P2P。`;cls='good';}
+      else if(r.avg<=110&&r.jitter<=30&&loss<3){text=`线路可用：平均 ${Math.round(r.avg)}ms。配合客户端预测后可达到较顺滑体验。`;cls='good';}
+      else{text=`线路一般：平均 ${Math.round(r.avg)}ms，P95 ${Math.round(r.p95)}ms。建议继续比较家庭 Wi‑Fi 与广州 TURN。`;cls='warn';}
+    }
+    diagVerdict.textContent=text;diagVerdict.className='diag-verdict'+(cls?' '+cls:'');
+  }
+  function pruneRtcPending(now=performance.now()){
+    for(const [id,st] of net.rtcPending){if(now-st>2500){net.rtcPending.delete(id);net.rtcLost++;}}
+  }
+  async function collectRtcStats(){
+    const pc=net.rtc;if(!pc)return;pruneRtcPending();
+    try{
+      const stats=await pc.getStats();let pair=null;
+      stats.forEach(r=>{if(r.type==='transport'&&r.selectedCandidatePairId)pair=stats.get(r.selectedCandidatePairId);});
+      if(!pair)stats.forEach(r=>{if(r.type==='candidate-pair'&&r.state==='succeeded'&&r.nominated)pair=r;});
+      if(!pair){renderNetDiag();return;}
+      const local=stats.get(pair.localCandidateId),remote=stats.get(pair.remoteCandidateId);
+      const lt=local?.candidateType||'?',rt=remote?.candidateType||'?';
+      net.rtcNativeRtt=Number.isFinite(pair.currentRoundTripTime)?pair.currentRoundTripTime*1000:net.rtcNativeRtt;
+      const proto=(local?.protocol||remote?.protocol||'?').toUpperCase();const relay=local?.relayProtocol||remote?.relayProtocol||'';
+      net.rtcDiag={
+        localText:`${lt}${local?.networkType?` · ${local.networkType}`:''}${local?.tcpType?` · ${local.tcpType}`:''}`,
+        remoteText:`${rt}${remote?.networkType?` · ${remote.networkType}`:''}${remote?.tcpType?` · ${remote.tcpType}`:''}`,
+        protocolText:`${proto}${relay?` / relay ${relay.toUpperCase()}`:''}`
+      };
+      net.rtcPath=(lt==='relay'||rt==='relay')?'TURN中继':`直连 ${lt}/${rt}`;net.rtcState=net.rtcPath;updateOnlineStatus();renderNetDiag();
+    }catch(_){renderNetDiag();}
+  }
   function setOnlineMessage(text,kind=''){
     onlineMessage.textContent=text;onlineMessage.className='online-message'+(kind?' '+kind:'');
   }
@@ -278,35 +376,23 @@
   }
   function stopRtcProbe(){
     if(net.rtcPingTimer){clearInterval(net.rtcPingTimer);net.rtcPingTimer=null;}
+    if(net.rtcStatsTimer){clearInterval(net.rtcStatsTimer);net.rtcStatsTimer=null;}
     net.rtcPending.clear();
     try{net.rtcDc?.close()}catch(_){ }
     try{net.rtc?.close()}catch(_){ }
-    net.rtc=null;net.rtcDc=null;net.rtcPeerId=null;net.rtcRtt=0;net.rtcPath='';net.rtcState='未连接';updateOnlineStatus();
+    net.rtc=null;net.rtcDc=null;net.rtcPeerId=null;net.rtcRtt=0;net.rtcNativeRtt=0;net.rtcPath='';net.rtcState='未连接';net.rtcDiag={};updateOnlineStatus();renderNetDiag();
   }
-  async function updateRtcPath(){
-    const pc=net.rtc;if(!pc)return;
-    try{
-      const stats=await pc.getStats();let pair=null;
-      stats.forEach(r=>{if(r.type==='transport'&&r.selectedCandidatePairId)pair=stats.get(r.selectedCandidatePairId);});
-      if(!pair)stats.forEach(r=>{if(r.type==='candidate-pair'&&r.state==='succeeded'&&r.nominated)pair=r;});
-      if(!pair)return;
-      const local=stats.get(pair.localCandidateId),remote=stats.get(pair.remoteCandidateId);
-      const lt=local?.candidateType||'?',rt=remote?.candidateType||'?';
-      net.rtcPath=(lt==='relay'||rt==='relay')?'TURN中继':`直连 ${lt}/${rt}`;
-      net.rtcState=net.rtcPath;updateOnlineStatus();
-      setOnlineMessage(`P2P 已建立：${net.rtcPath}${net.rtcRtt?`，约 ${Math.round(net.rtcRtt)}ms`:''}。当前仅测速，下一版再把战斗流量切到 P2P。`,'ok');
-    }catch(_){ }
-  }
+  async function updateRtcPath(){await collectRtcStats();}
   function bindRtcDataChannel(dc){
     net.rtcDc=dc;dc.binaryType='arraybuffer';
     dc.onopen=()=>{
-      net.rtcState='P2P测速中';updateOnlineStatus();updateRtcPath();
-      const ping=()=>{if(dc.readyState!=='open')return;const id=++net.rtcPingSeq;net.rtcPending.set(id,performance.now());dc.send(JSON.stringify({t:'p',id}));};
-      ping();net.rtcPingTimer=setInterval(ping,700);
+      net.rtcState='P2P测速中';updateOnlineStatus();collectRtcStats();
+      const ping=()=>{if(dc.readyState!=='open')return;pruneRtcPending();const id=++net.rtcPingSeq;net.rtcSent++;net.rtcPending.set(id,performance.now());try{dc.send(JSON.stringify({t:'p',id}))}catch(_){}};
+      ping();net.rtcPingTimer=setInterval(ping,500);net.rtcStatsTimer=setInterval(collectRtcStats,900);
     };
-    dc.onclose=()=>{if(net.rtcPingTimer){clearInterval(net.rtcPingTimer);net.rtcPingTimer=null;}net.rtcState='P2P断开';net.rtcRtt=0;updateOnlineStatus();};
-    dc.onerror=()=>{net.rtcState='P2P异常';updateOnlineStatus();};
-    dc.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return;}if(m.t==='p'){dc.send(JSON.stringify({t:'q',id:m.id}));return;}if(m.t==='q'){const st=net.rtcPending.get(m.id);if(st!=null){net.rtcPending.delete(m.id);const sm=performance.now()-st;net.rtcRtt=net.rtcRtt?net.rtcRtt*.7+sm*.3:sm;updateOnlineStatus();updateRtcPath();}}};
+    dc.onclose=()=>{if(net.rtcPingTimer){clearInterval(net.rtcPingTimer);net.rtcPingTimer=null;}if(net.rtcStatsTimer){clearInterval(net.rtcStatsTimer);net.rtcStatsTimer=null;}net.rtcState='P2P断开';net.rtcRtt=0;updateOnlineStatus();renderNetDiag();};
+    dc.onerror=()=>{net.rtcState='P2P异常';updateOnlineStatus();renderNetDiag();};
+    dc.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return;}if(m.t==='p'){try{dc.send(JSON.stringify({t:'q',id:m.id}))}catch(_){}return;}if(m.t==='q'){const st=net.rtcPending.get(m.id);if(st!=null){net.rtcPending.delete(m.id);net.rtcRecv++;const sm=performance.now()-st;net.rtcSamples.push(sm);if(net.rtcSamples.length>120)net.rtcSamples.shift();net.rtcRtt=net.rtcRtt?net.rtcRtt*.75+sm*.25:sm;updateOnlineStatus();renderNetDiag();}}};
   }
   async function ensureRtcProbe(peerId,isOfferer=false){
     if(!peerId||peerId===net.id)return;
@@ -315,8 +401,8 @@
     const pc=new RTCPeerConnection({iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.cloudflare.com:53']}]});net.rtc=pc;
     pc.onicecandidate=e=>{if(e.candidate)netSend({type:'rtcSignal',target:peerId,signal:{kind:'candidate',candidate:e.candidate}});};
     pc.ondatachannel=e=>bindRtcDataChannel(e.channel);
-    pc.onconnectionstatechange=()=>{if(pc.connectionState==='connected'){net.rtcState='P2P已连接';updateOnlineStatus();updateRtcPath();}else if(['failed','disconnected','closed'].includes(pc.connectionState)){net.rtcState=pc.connectionState==='failed'?'P2P失败':'P2P断开';updateOnlineStatus();}};
-    pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='failed'){net.rtcState='P2P打洞失败';updateOnlineStatus();setOnlineMessage('P2P 直连未建立。若多次测试都失败，再部署广州 TURN 兜底即可。','error');}};
+    pc.onconnectionstatechange=()=>{if(pc.connectionState==='connected'){net.rtcState='P2P已连接';updateOnlineStatus();collectRtcStats();}else if(['failed','disconnected','closed'].includes(pc.connectionState)){net.rtcState=pc.connectionState==='failed'?'P2P失败':'P2P断开';updateOnlineStatus();renderNetDiag();}};
+    pc.oniceconnectionstatechange=()=>{collectRtcStats();if(pc.iceConnectionState==='failed'){net.rtcState='P2P打洞失败';updateOnlineStatus();renderNetDiag();setOnlineMessage('P2P 直连未建立。若多次测试都失败，再部署广州 TURN 兜底即可。','error');}};
     if(isOfferer){const dc=pc.createDataChannel('probe',{ordered:false,maxRetransmits:0});bindRtcDataChannel(dc);const offer=await pc.createOffer();await pc.setLocalDescription(offer);netSend({type:'rtcSignal',target:peerId,signal:{kind:'offer',sdp:pc.localDescription}});}
   }
   async function handleRtcSignal(m){
@@ -364,7 +450,7 @@
     if(m.type==='hello'){net.id=m.id;return;}
     if(m.type==='pong'){
       const sample=Math.max(0,Date.now()-Number(m.t||Date.now()));
-      net.rtt=net.rtt?net.rtt*.72+sample*.28:sample;updateOnlineStatus();return;
+      net.rtt=net.rtt?net.rtt*.72+sample*.28:sample;net.serverSamples.push(sample);if(net.serverSamples.length>60)net.serverSamples.shift();updateOnlineStatus();renderNetDiag();return;
     }
     if(m.type==='rtcSignal'){handleRtcSignal(m);return;}
     if(m.type==='error'){setOnlineMessage(m.message||'联机操作失败','error');return;}
@@ -1436,6 +1522,11 @@
   document.getElementById('soundBtn').onclick=e=>{muted=!muted;e.currentTarget.textContent=muted?'🔇':'🔊'};
 
   onlineBtn.addEventListener('click',()=>{setOnlinePanel(true);connectOnline().catch(()=>{});});
+  onlineStatus.addEventListener('click',()=>setNetDiagOpen(true));
+  document.getElementById('diagOpenBtn').addEventListener('click',()=>setNetDiagOpen(true));
+  document.getElementById('netDiagClose').addEventListener('click',()=>setNetDiagOpen(false));
+  document.getElementById('diagCloseBottom').addEventListener('click',()=>setNetDiagOpen(false));
+  document.getElementById('diagResetBtn').addEventListener('click',resetNetDiagSamples);
   document.getElementById('onlineClose').addEventListener('click',()=>setOnlinePanel(false));
   document.getElementById('createRoomBtn').addEventListener('click',async()=>{try{await connectOnline();netSend({type:'create',name:onlineName.value});}catch{}});
   document.getElementById('joinRoomBtn').addEventListener('click',async()=>{const code=onlineRoomInput.value.replace(/\D/g,'').slice(0,4);if(code.length!==4){setOnlineMessage('请输入 4 位房间号。','error');return;}try{await connectOnline();netSend({type:'join',code,name:onlineName.value});}catch{}});
@@ -1450,11 +1541,13 @@
   document.getElementById('settingsReset').addEventListener('click',()=>{mobileControlScale=1;shakeStrength=.7;mobileMoveMode='buttons';resetJoystick();updateSettingsLabels();saveMobileSettings();scheduleMobileLayout();pushFeed('⚙️ 手机操作设置已恢复默认','info',1.8);});
   mobileSettings.querySelectorAll('[data-setting]').forEach(btn=>btn.addEventListener('click',()=>adjustMobileSetting(btn.dataset.setting,Number(btn.dataset.delta)||0)));
   document.addEventListener('pointerdown',e=>{if(mobileSettings.classList.contains('show')&&!mobileSettings.contains(e.target)&&!mobileSettingsBtn.contains(e.target))setMobileSettingsOpen(false);});
-  window.addEventListener('keydown',e=>{if(e.key==='Escape'){setMobileSettingsOpen(false);setOnlinePanel(false)}});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'){setMobileSettingsOpen(false);setOnlinePanel(false);setNetDiagOpen(false)}});
 
   window.addEventListener('resize',scheduleMobileLayout,{passive:true});
   window.addEventListener('orientationchange',()=>setTimeout(scheduleMobileLayout,80),{passive:true});
   window.visualViewport?.addEventListener('resize',scheduleMobileLayout,{passive:true});
+
+  const navConn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;navConn?.addEventListener?.('change',()=>renderNetDiag());
 
   // 调试接口：用于自动化回归测试单机与 v6 联机状态。
   window.__PAOPAO_DEBUG__={
@@ -1479,7 +1572,7 @@
     network:()=>({connected:net.connected,room:net.room,rtt:net.rtt,lastStateAge:performance.now()-net.lastStateAt}),
     mobileSettings:()=>({controls:mobileControlScale,shake:shakeStrength,moveMode:mobileMoveMode,joystickDir,open:mobileSettings.classList.contains('show')}),
     setMoveMode:(mode)=>{setMobileMoveMode(mode,false);return mobileMoveMode;},
-    rtc:()=>({state:net.rtcState,rtt:net.rtcRtt,path:net.rtcPath,peerId:net.rtcPeerId,connectionState:net.rtc?.connectionState||'',iceState:net.rtc?.iceConnectionState||''}),
+    rtc:()=>({state:net.rtcState,rtt:net.rtcRtt,nativeRtt:net.rtcNativeRtt,path:net.rtcPath,diag:net.rtcDiag,summary:sampleSummary(net.rtcSamples),sent:net.rtcSent,recv:net.rtcRecv,lost:net.rtcLost,peerId:net.rtcPeerId,connectionState:net.rtc?.connectionState||'',iceState:net.rtc?.iceConnectionState||''}),
     setMobileSettings:(controls,shake)=>{if(Number.isFinite(controls))mobileControlScale=clamp(controls,.8,1.3);if(Number.isFinite(shake))shakeStrength=clamp(shake,0,1);updateSettingsLabels();saveMobileSettings();updateMobileLayout();return {controls:mobileControlScale,shake:shakeStrength,moveMode:mobileMoveMode};}
   };
 

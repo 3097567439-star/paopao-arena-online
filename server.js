@@ -193,7 +193,7 @@ function handleMessage(client,msg){
   if(m.type==='join')return joinRoom(client,m.code,m.name);
   if(m.type==='leave')return leaveRoom(client,true);
   const room=client.room;if(!room)return safeSend(client,{type:'error',message:'请先创建或加入房间'});
-  // v7.0 P2P 线路诊断：服务器只转发 SDP/ICE 信令，不承载 DataChannel 游戏流量。
+  // v7.1 P2P 线路剖析：服务器只转发 SDP/ICE 信令，不承载 DataChannel 游戏流量。
   if(m.type==='rtcSignal'){
     const targetId=String(m.target||'');
     const target=targetId?room.clients.get(targetId):[...room.clients.values()].find(c=>c.id!==client.id);
@@ -223,7 +223,7 @@ const server=http.createServer((req,res)=>{
   const u=new URL(req.url,'http://localhost');
   if(u.pathname==='/health'){
     res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-    return res.end(JSON.stringify({ok:true,version:'v7.0',rooms:rooms.size,uptime:Math.round(process.uptime())}));
+    return res.end(JSON.stringify({ok:true,version:'v7.1',rooms:rooms.size,uptime:Math.round(process.uptime())}));
   }
   let p=decodeURIComponent(u.pathname);if(p==='/')p='/index.html';
   const file=path.normalize(path.join(ROOT,p));if(!file.startsWith(ROOT)){res.writeHead(403);return res.end('Forbidden');}
@@ -236,7 +236,7 @@ server.on('upgrade',(req,socket)=>{
   // 实时游戏优先低延迟：关闭 Nagle，并开启 TCP keepalive。
   try{socket.setNoDelay(true);socket.setKeepAlive(true,15000);}catch(_){}
   const client={id:`p${nextClientId++}`,socket,buffer:Buffer.alloc(0),closed:false,room:null,name:'玩家',color:COLORS[0]};
-  safeSend(client,{type:'hello',id:client.id,version:'v7.0'});
+  safeSend(client,{type:'hello',id:client.id,version:'v7.1'});
   socket.on('data',d=>parseFrames(client,d));socket.on('error',()=>{});socket.on('close',()=>{client.closed=true;leaveRoom(client,true);});socket.on('end',()=>{client.closed=true;leaveRoom(client,true);});
 });
-server.listen(PORT,HOST,()=>console.log(`\n泡泡竞技场 v7.0 P2P线路诊断服务器已启动\n本机: http://localhost:${PORT}\n局域网/公网: http://<服务器IP>:${PORT}\n`));
+server.listen(PORT,HOST,()=>console.log(`\n泡泡竞技场 v7.1 P2P线路剖析服务器已启动\n本机: http://localhost:${PORT}\n局域网/公网: http://<服务器IP>:${PORT}\n`));
