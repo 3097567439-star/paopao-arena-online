@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: paopao-arena-online
+    runtime: node
+    plan: free
+    buildCommand: npm install --ignore-scripts
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
