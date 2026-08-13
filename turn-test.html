@@ -52,6 +52,7 @@ const TURN_URL='turn:81.71.101.70:3478?transport=udp';
 let ws=null,myId='',room='',peerId='',started=false;
 const conns={direct:null,turn:null};
 const channels={direct:null,turn:null};
+const iceQueue={direct:[],turn:[]};
 const samples={direct:[],turn:[]}, sent={direct:0,turn:0}, recv={direct:0,turn:0}, pending={direct:new Map(),turn:new Map()};
 const timers=[];
 function status(s){$('status').textContent=s}
@@ -126,13 +127,25 @@ async function startConnections(){
    }
  }
 }
+async function flushIce(mode){
+ const pc=conns[mode]; if(!pc?.remoteDescription)return;
+ const q=iceQueue[mode].splice(0);
+ for(const c of q){try{await pc.addIceCandidate(c)}catch(e){console.warn('ICE flush failed',mode,e)}}
+}
 async function onSignal(sig){
  if(!sig?.probe)return; const mode=sig.mode;if(!['direct','turn'].includes(mode))return;
  if(!conns[mode])makePC(mode); const pc=conns[mode];
  if(sig.description){
    await pc.setRemoteDescription(sig.description);
-   if(sig.description.type==='offer'){const ans=await pc.createAnswer();await pc.setLocalDescription(ans);send({type:'rtcSignal',target:peerId,signal:{probe:true,mode,description:pc.localDescription}})}
- } else if(sig.candidate){try{await pc.addIceCandidate(sig.candidate)}catch(e){console.warn(e)}}
+   await flushIce(mode);
+   if(sig.description.type==='offer'){
+     const ans=await pc.createAnswer();await pc.setLocalDescription(ans);
+     send({type:'rtcSignal',target:peerId,signal:{probe:true,mode,description:pc.localDescription}});
+   }
+ } else if(sig.candidate){
+   if(pc.remoteDescription){try{await pc.addIceCandidate(sig.candidate)}catch(e){console.warn('ICE add failed',mode,e)}}
+   else iceQueue[mode].push(sig.candidate);
+ }
 }
 function connect(action){
  if(!$('pass').value){status('请先输入 TURN 密码，再创建/加入房间。');return}
@@ -147,7 +160,7 @@ function connect(action){
  ws.onclose=()=>status('信令连接已断开');
 }
 function reset(close=true){
- timers.splice(0).forEach(clearInterval);for(const k of ['direct','turn']){try{channels[k]?.close()}catch(_){};try{conns[k]?.close()}catch(_){};channels[k]=conns[k]=null;samples[k]=[];sent[k]=recv[k]=0;pending[k].clear();
+ timers.splice(0).forEach(clearInterval);for(const k of ['direct','turn']){try{channels[k]?.close()}catch(_){};try{conns[k]?.close()}catch(_){};channels[k]=conns[k]=null;iceQueue[k]=[];samples[k]=[];sent[k]=recv[k]=0;pending[k].clear();
  ['Now','Avg','Min','P95','Jitter','Loss'].forEach(x=>$(k+x).textContent='—');$(k+'Ice').textContent='ICE：—';$(k+'State').textContent='未连接';$(k+'State').className='small'}
  started=false;peerId=''; if(close&&ws){try{ws.close()}catch(_){}ws=null} if(close)status('已重置，可以重新创建或加入房间。');
 }
