@@ -2,6 +2,7 @@ services:
   - type: web
     name: paopao-arena-online
     runtime: node
+    region: singapore
     plan: free
     buildCommand: npm install --ignore-scripts
     startCommand: npm start
