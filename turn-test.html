@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>泡泡竞技场 · 广州 TURN 对照测试</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI","PingFang SC",sans-serif;color:#18465a;background:#e9faff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px;background:linear-gradient(#dff7ff,#fff7df)}
+.wrap{max-width:980px;margin:auto}.card{background:#fff;border:1px solid #d6edf2;border-radius:24px;padding:20px;box-shadow:0 14px 40px #3b789222}
+h1{margin:0 0 8px;font-size:28px}.sub{color:#658695;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:700;margin:0 0 6px}
+input{width:100%;font-size:18px;padding:13px;border:2px solid #d9edf2;border-radius:14px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}button{border:0;border-radius:14px;padding:13px 18px;font-weight:800;font-size:16px;cursor:pointer}
+.primary{background:#6b5cff;color:#fff}.secondary{background:#eaf7fb;color:#246179}
+.note{padding:12px 14px;border-radius:14px;background:#fff8d9;color:#775d13;margin:12px 0}
+.status{padding:12px 14px;border-radius:14px;background:#eef8ff;margin:12px 0;white-space:pre-wrap}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+.route{border:1px solid #d6edf2;border-radius:20px;padding:16px;background:#fbfeff}.route h2{margin:0 0 12px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.m{background:#f0f8fb;padding:12px;border-radius:14px}
+.m b{display:block;font-size:23px;margin-top:3px}.small{font-size:12px;color:#6f8791}.ok{color:#15803d}.bad{color:#b42318}
+@media(max-width:720px){body{padding:12px}.grid,.compare{grid-template-columns:1fr}.card{padding:16px}.metrics{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body><div class="wrap"><div class="card">
+<h1>广州 TURN 对照测试</h1>
+<div class="sub">同时测：WebRTC 直连 P2P vs 腾讯云广州 TURN（UDP 强制 relay）。不会修改正式游戏。</div>
+<div class="note">TURN 密码只保存在当前页面内存，不写入 URL、GitHub 或 localStorage。双方请输入创建 coturn 用户时设置的同一个密码。</div>
+<div class="grid">
+ <div class="field"><label>昵称</label><input id="name" value="玩家"></div>
+ <div class="field"><label>房间号（加入时填写）</label><input id="code" inputmode="numeric" maxlength="4"></div>
+ <div class="field"><label>TURN 用户名</label><input id="user" value="paopao"></div>
+ <div class="field"><label>TURN 密码</label><input id="pass" type="password" autocomplete="off" placeholder="不会上传到 GitHub"></div>
+</div>
+<div class="actions"><button class="primary" id="create">创建测试房间</button><button class="secondary" id="join">加入测试房间</button><button class="secondary" id="reset">重新测试</button></div>
+<div class="status" id="status">等待创建或加入房间。</div>
+<div class="compare">
+ <section class="route"><h2>① P2P 直连</h2><div id="directState" class="small">未连接</div><div class="metrics">
+  <div class="m">当前 RTT<b id="directNow">—</b></div><div class="m">平均<b id="directAvg">—</b></div>
+  <div class="m">最低<b id="directMin">—</b></div><div class="m">P95<b id="directP95">—</b></div>
+  <div class="m">抖动<b id="directJitter">—</b></div><div class="m">丢包<b id="directLoss">—</b></div>
+ </div><div class="status" id="directIce">ICE：—</div></section>
+ <section class="route"><h2>② 广州 TURN</h2><div id="turnState" class="small">未连接</div><div class="metrics">
+  <div class="m">当前 RTT<b id="turnNow">—</b></div><div class="m">平均<b id="turnAvg">—</b></div>
+  <div class="m">最低<b id="turnMin">—</b></div><div class="m">P95<b id="turnP95">—</b></div>
+  <div class="m">抖动<b id="turnJitter">—</b></div><div class="m">丢包<b id="turnLoss">—</b></div>
+ </div><div class="status" id="turnIce">ICE：—</div></section>
+</div>
+</div></div>
+<script>
+const $=id=>document.getElementById(id);
+const WS_URL=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws';
+const TURN_URL='turn:81.71.101.70:3478?transport=udp';
+let ws=null,myId='',room='',peerId='',started=false;
+const conns={direct:null,turn:null};
+const channels={direct:null,turn:null};
+const samples={direct:[],turn:[]}, sent={direct:0,turn:0}, recv={direct:0,turn:0}, pending={direct:new Map(),turn:new Map()};
+const timers=[];
+function status(s){$('status').textContent=s}
+function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))}
+function pct(v){return Number.isFinite(v)?v.toFixed(1)+'%':'—'}
+function ms(v){return Number.isFinite(v)?Math.round(v)+'ms':'—'}
+function stats(mode){
+ const a=samples[mode]; if(!a.length)return;
+ const s=[...a].sort((x,y)=>x-y), avg=a.reduce((x,y)=>x+y,0)/a.length;
+ const p95=s[Math.min(s.length-1,Math.floor(s.length*.95))];
+ const variance=a.reduce((x,y)=>x+(y-avg)**2,0)/a.length;
+ const loss=sent[mode] ? Math.max(0,(sent[mode]-recv[mode])/sent[mode]*100):0;
+ $(mode+'Now').textContent=ms(a[a.length-1]); $(mode+'Avg').textContent=ms(avg);
+ $(mode+'Min').textContent=ms(s[0]); $(mode+'P95').textContent=ms(p95);
+ $(mode+'Jitter').textContent=ms(Math.sqrt(variance)); $(mode+'Loss').textContent=pct(loss);
+}
+function attachChannel(mode,ch){
+ channels[mode]=ch; ch.binaryType='arraybuffer';
+ ch.onopen=()=>{ $(mode+'State').textContent='DataChannel 已连接'; $(mode+'State').className='small ok'; startProbe(mode); inspect(mode); };
+ ch.onclose=()=>{ $(mode+'State').textContent='DataChannel 已断开'; $(mode+'State').className='small bad'; };
+ ch.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+   if(m.t==='p'){try{ch.send(JSON.stringify({t:'q',i:m.i,x:m.x}))}catch(_){}}
+   else if(m.t==='q'){const p=pending[mode].get(m.i);if(p){pending[mode].delete(m.i);recv[mode]++;samples[mode].push(performance.now()-p);if(samples[mode].length>180)samples[mode].shift();stats(mode)}}
+ };
+}
+function startProbe(mode){
+ if(channels[mode]._probing)return; channels[mode]._probing=true;
+ let seq=0;
+ const t=setInterval(()=>{const ch=channels[mode];if(!ch||ch.readyState!=='open')return;
+   const i=++seq; sent[mode]++; pending[mode].set(i,performance.now());
+   try{ch.send(JSON.stringify({t:'p',i,x:Date.now()}))}catch(_){}
+   setTimeout(()=>pending[mode].delete(i),4000);
+ },500); timers.push(t);
+}
+async function inspect(mode){
+ const pc=conns[mode]; if(!pc)return;
+ const t=setInterval(async()=>{try{
+   const rs=await pc.getStats(); let pair=null,local=null,remote=null;
+   rs.forEach(r=>{if(r.type==='candidate-pair'&&r.state==='succeeded'&&r.nominated)pair=r});
+   if(!pair){rs.forEach(r=>{if(r.type==='transport'&&r.selectedCandidatePairId)pair=rs.get(r.selectedCandidatePairId)})}
+   if(pair){local=rs.get(pair.localCandidateId);remote=rs.get(pair.remoteCandidateId)}
+   const lines=[
+    'ICE：'+pc.iceConnectionState+' / '+pc.connectionState,
+    '本地 Candidate：'+(local?.candidateType||'—')+' · '+(local?.protocol||'—'),
+    '远端 Candidate：'+(remote?.candidateType||'—')+' · '+(remote?.protocol||'—'),
+    'WebRTC底层 RTT：'+(Number.isFinite(pair?.currentRoundTripTime)?Math.round(pair.currentRoundTripTime*1000)+'ms':'—'),
+    mode==='turn'?'策略：relay-only（应看到 relay Candidate）':'策略：all（允许直连）'
+   ];
+   $(mode+'Ice').textContent=lines.join('\n');
+ }catch(_){}},1000); timers.push(t);
+}
+function makePC(mode){
+ const cfg=mode==='turn'?{
+   iceServers:[{urls:TURN_URL,username:$('user').value.trim()||'paopao',credential:$('pass').value}],
+   iceTransportPolicy:'relay'
+ }:{iceServers:[{urls:'stun:stun.cloudflare.com:3478'}],iceTransportPolicy:'all'};
+ const pc=new RTCPeerConnection(cfg); conns[mode]=pc;
+ pc.onicecandidate=e=>{if(e.candidate)send({type:'rtcSignal',target:peerId,signal:{probe:true,mode,candidate:e.candidate}})};
+ pc.ondatachannel=e=>attachChannel(mode,e.channel);
+ pc.onconnectionstatechange=()=>{$(mode+'State').textContent='连接状态：'+pc.connectionState};
+ return pc;
+}
+async function startConnections(){
+ if(started||!peerId)return; if(!$('pass').value){status('请先输入 TURN 密码。');return}
+ started=true; status('双方已在房间，正在同时建立 P2P 与广州 TURN…');
+ for(const mode of ['direct','turn'])makePC(mode);
+ if(myId<peerId){
+   for(const mode of ['direct','turn']){
+     const ch=conns[mode].createDataChannel('probe-'+mode,{ordered:false,maxRetransmits:0}); attachChannel(mode,ch);
+     const offer=await conns[mode].createOffer(); await conns[mode].setLocalDescription(offer);
+     send({type:'rtcSignal',target:peerId,signal:{probe:true,mode,description:conns[mode].localDescription}});
+   }
+ }
+}
+async function onSignal(sig){
+ if(!sig?.probe)return; const mode=sig.mode;if(!['direct','turn'].includes(mode))return;
+ if(!conns[mode])makePC(mode); const pc=conns[mode];
+ if(sig.description){
+   await pc.setRemoteDescription(sig.description);
+   if(sig.description.type==='offer'){const ans=await pc.createAnswer();await pc.setLocalDescription(ans);send({type:'rtcSignal',target:peerId,signal:{probe:true,mode,description:pc.localDescription}})}
+ } else if(sig.candidate){try{await pc.addIceCandidate(sig.candidate)}catch(e){console.warn(e)}}
+}
+function connect(action){
+ if(!$('pass').value){status('请先输入 TURN 密码，再创建/加入房间。');return}
+ reset(false); ws=new WebSocket(WS_URL);
+ ws.onopen=()=>send(action==='create'?{type:'create',name:$('name').value}:{type:'join',code:$('code').value.trim(),name:$('name').value});
+ ws.onmessage=async e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+  if(m.type==='hello'){myId=m.id}
+  if(m.type==='error'){status('错误：'+m.message)}
+  if(m.type==='lobby'){room=m.code;$('code').value=room;const other=m.players.find(p=>p.id!==myId);peerId=other?.id||'';status('房间 '+room+' · '+m.players.length+' 人'+(peerId?' · 已找到对方，准备测速':' · 等待另一位玩家加入'));if(peerId)startConnections()}
+  if(m.type==='rtcSignal'){peerId=m.from||peerId;await onSignal(m.signal)}
+ };
+ ws.onclose=()=>status('信令连接已断开');
+}
+function reset(close=true){
+ timers.splice(0).forEach(clearInterval);for(const k of ['direct','turn']){try{channels[k]?.close()}catch(_){};try{conns[k]?.close()}catch(_){};channels[k]=conns[k]=null;samples[k]=[];sent[k]=recv[k]=0;pending[k].clear();
+ ['Now','Avg','Min','P95','Jitter','Loss'].forEach(x=>$(k+x).textContent='—');$(k+'Ice').textContent='ICE：—';$(k+'State').textContent='未连接';$(k+'State').className='small'}
+ started=false;peerId=''; if(close&&ws){try{ws.close()}catch(_){}ws=null} if(close)status('已重置，可以重新创建或加入房间。');
+}
+$('create').onclick=()=>connect('create');$('join').onclick=()=>connect('join');$('reset').onclick=()=>reset(true);
+</script></body></html>
