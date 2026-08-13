@@ -1,6 +1,6 @@
 'use strict';
 
-// 泡泡竞技场 v6.1：公网部署版 · 零依赖静态服务器 + WebSocket 房间服务器
+// 泡泡竞技场 v6.2：低延迟公网联机版 · 零依赖静态服务器 + WebSocket 房间服务器
 // Node.js 18+：node server.js
 
 const http = require('http');
@@ -179,15 +179,16 @@ function tickRoom(room,dt){
   for(const f of g.flames)f.t-=dt;g.flames=g.flames.filter(f=>f.t>0);
   for(const a of g.actors){a.inv=Math.max(0,a.inv-dt);a.kickCooldown=Math.max(0,a.kickCooldown-dt);a.kickPulse=Math.max(0,a.kickPulse-dt);}
 }
-function serializeGame(g){return {map:g.map,countdown:g.countdown,gameOver:g.gameOver,winnerId:g.winnerId,actors:g.actors.map(a=>({id:a.id,name:a.name,color:a.color,isAI:a.isAI,isBot:a.isBot,x:a.x,y:a.y,alive:a.alive,speed:a.speed,bombCap:a.bombCap,range:a.range,activeBombs:a.activeBombs,canKick:a.canKick,remote:a.remote,shield:a.shield,kills:a.kills,inv:a.inv,kickPulse:a.kickPulse,connected:a.connected})),bombs:g.bombs.map(b=>({id:b.id,x:b.x,y:b.y,t:b.t,range:b.range,ownerId:b.ownerId,remote:b.remote,pulse:b.pulse,moving:b.moving,slide:b.slide,kickDir:b.kickDir,fromX:b.fromX,fromY:b.fromY})),items:g.items,flames:g.flames};}
+function serializeGame(g){return {map:g.map,countdown:g.countdown,gameOver:g.gameOver,winnerId:g.winnerId,actors:g.actors.map(a=>({id:a.id,name:a.name,color:a.color,isAI:a.isAI,isBot:a.isBot,x:a.x,y:a.y,alive:a.alive,speed:a.speed,bombCap:a.bombCap,range:a.range,activeBombs:a.activeBombs,canKick:a.canKick,remote:a.remote,shield:a.shield,kills:a.kills,inv:a.inv,kickPulse:a.kickPulse,connected:a.connected,moveDir:a.moveDir||{x:0,y:0}})),bombs:g.bombs.map(b=>({id:b.id,x:b.x,y:b.y,t:b.t,range:b.range,ownerId:b.ownerId,remote:b.remote,pulse:b.pulse,moving:b.moving,slide:b.slide,kickDir:b.kickDir,fromX:b.fromX,fromY:b.fromY})),items:g.items,flames:g.flames};}
 function broadcastSnapshot(room,force=false){if(!room.game)return;roomBroadcast(room,{type:'state',serverTime:Date.now(),state:serializeGame(room.game)});if(room.game._events?.length){for(const e of room.game._events)roomBroadcast(room,e);room.game._events.length=0;}}
 
 setInterval(()=>{
-  const now=Date.now();for(const room of rooms.values()){if(!room.game)continue;const dt=clamp((now-room.lastTick)/1000,0,.05);room.lastTick=now;tickRoom(room,dt);room.snapshotAcc+=dt;if(room.snapshotAcc>=1/15){room.snapshotAcc=0;broadcastSnapshot(room);}}
+  const now=Date.now();for(const room of rooms.values()){if(!room.game)continue;const dt=clamp((now-room.lastTick)/1000,0,.05);room.lastTick=now;tickRoom(room,dt);room.snapshotAcc+=dt;if(room.snapshotAcc>=1/20){room.snapshotAcc-=1/20;broadcastSnapshot(room);}}
 },1000/30);
 
 function handleMessage(client,msg){
   let m;try{m=JSON.parse(msg)}catch{return;}
+  if(m.type==='ping')return safeSend(client,{type:'pong',t:m.t,serverTime:Date.now()});
   if(m.type==='create')return createRoom(client,m.name);
   if(m.type==='join')return joinRoom(client,m.code,m.name);
   if(m.type==='leave')return leaveRoom(client,true);
@@ -215,7 +216,7 @@ const server=http.createServer((req,res)=>{
   const u=new URL(req.url,'http://localhost');
   if(u.pathname==='/health'){
     res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-    return res.end(JSON.stringify({ok:true,version:'v6.1',rooms:rooms.size,uptime:Math.round(process.uptime())}));
+    return res.end(JSON.stringify({ok:true,version:'v6.2',rooms:rooms.size,uptime:Math.round(process.uptime())}));
   }
   let p=decodeURIComponent(u.pathname);if(p==='/')p='/index.html';
   const file=path.normalize(path.join(ROOT,p));if(!file.startsWith(ROOT)){res.writeHead(403);return res.end('Forbidden');}
@@ -225,8 +226,10 @@ server.on('upgrade',(req,socket)=>{
   const u=new URL(req.url,'http://localhost');if(u.pathname!=='/ws'){socket.destroy();return;}
   const key=req.headers['sec-websocket-key'];if(!key){socket.destroy();return;}
   socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+websocketAccept(key)+'\r\n\r\n');
+  // 实时游戏优先低延迟：关闭 Nagle，并开启 TCP keepalive。
+  try{socket.setNoDelay(true);socket.setKeepAlive(true,15000);}catch(_){}
   const client={id:`p${nextClientId++}`,socket,buffer:Buffer.alloc(0),closed:false,room:null,name:'玩家',color:COLORS[0]};
-  safeSend(client,{type:'hello',id:client.id,version:'v6.1'});
+  safeSend(client,{type:'hello',id:client.id,version:'v6.2'});
   socket.on('data',d=>parseFrames(client,d));socket.on('error',()=>{});socket.on('close',()=>{client.closed=true;leaveRoom(client,true);});socket.on('end',()=>{client.closed=true;leaveRoom(client,true);});
 });
-server.listen(PORT,HOST,()=>console.log(`\n泡泡竞技场 v6.1 公网联机服务器已启动\n本机: http://localhost:${PORT}\n局域网/公网: http://<服务器IP>:${PORT}\n`));
+server.listen(PORT,HOST,()=>console.log(`\n泡泡竞技场 v6.2 低延迟公网联机服务器已启动\n本机: http://localhost:${PORT}\n局域网/公网: http://<服务器IP>:${PORT}\n`));

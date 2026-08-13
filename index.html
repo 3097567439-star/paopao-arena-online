@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>泡泡竞技场 v6.1 · 远程联机版</title>
+<title>泡泡竞技场 v6.2 · 低延迟联机版</title>
 <style>
   :root{
     --bg:#8fe8ff;
@@ -129,7 +129,7 @@
 <div class="shell">
   <section class="game-card">
     <div class="topbar">
-      <div class="brand"><div class="logo">💧</div><div><h1>泡泡竞技场</h1><div class="sub">v6 远程联机版 · 房间系统 · 服务器权威同步 · 2～4 人对战</div></div></div>
+      <div class="brand"><div class="logo">💧</div><div><h1>泡泡竞技场</h1><div class="sub">v6.2 低延迟联机版 · 客户端预测 · 服务器权威同步 · 2～4 人对战</div></div></div>
       <div class="actions"><span class="online-status" id="onlineStatus">联机</span><button class="pillbtn" id="onlineBtn">🌐 联机</button><button class="pillbtn mobile-settings-btn" id="mobileSettingsBtn" aria-expanded="false" aria-controls="mobileSettings">⚙️ 设置</button><button class="pillbtn diffbtn" id="difficultyBtn">AI 普通</button><button class="pillbtn" id="restartBtn">↻ 重开</button><button class="pillbtn" id="soundBtn">🔊</button></div>
     </div>
     <div class="mobile-settings-panel" id="mobileSettings" aria-hidden="true">
@@ -188,7 +188,7 @@
       <div class="legend-row"><div class="legend-icon">📡</div><span>遥控：E / 按钮引爆自己的遥控泡泡</span></div>
       <div class="legend-row"><div class="legend-icon">🛡️</div><span>护盾：抵挡一次爆炸伤害</span></div>
     </div>
-    <div class="tip">v6 新增远程联机：创建 4 位房间号后可让远端玩家加入。服务器统一计算移动、炸弹、道具和胜负；单机 AI 模式仍保留。手机按钮、摇杆、飞踢辅助与操作设置继续可用。</div>
+    <div class="tip">v6.2 低延迟联机：创建 4 位房间号后可让远端玩家加入。服务器统一计算移动、炸弹、道具和胜负；单机 AI 模式仍保留。手机按钮、摇杆、飞踢辅助与操作设置继续可用。</div>
   </aside>
 </div>
 
@@ -207,7 +207,7 @@
       <div class="player-list" id="onlinePlayerList"></div>
       <label class="fillbots-row"><span>🤖 AI 自动补满 4 人</span><input id="fillBotsToggle" type="checkbox" checked /></label>
       <div class="online-row"><button class="online-primary" id="startOnlineBtn">开始联机对战</button><button class="online-secondary" id="leaveRoomBtn">离开房间</button></div>
-      <div class="online-note">房主负责开始；游戏开始后断线的玩家会留在本局但停止移动。v6 首版先实现房间和实时对战，账号、匹配与断线重连将在后续版本继续完善。</div>
+      <div class="online-note">房主负责开始；游戏开始后断线的玩家会留在本局但停止移动。v6.2 已加入本地移动预测、Ping 测量和低延迟同步；服务器仍保留最终判定权。</div>
     </div>
     <div class="online-message" id="onlineMessage">等待连接服务器…</div>
   </section>
@@ -250,7 +250,7 @@
   const onlinePlayerList=document.getElementById('onlinePlayerList'), fillBotsToggle=document.getElementById('fillBotsToggle'), startOnlineBtn=document.getElementById('startOnlineBtn');
   const restartHint=document.querySelector('.restart-hint');
   let onlineMode=false;
-  const net={ws:null,id:null,room:null,hostId:null,connected:false,lastInput:'',lastStateAt:0};
+  const net={ws:null,id:null,room:null,hostId:null,connected:false,lastInput:'',lastStateAt:0,rtt:0,pingTimer:null,lastPingSent:0,inputSeq:0};
   const MOBILE_SETTINGS_KEY='paopao-arena-v5.4-mobile-settings', LEGACY_MOBILE_SETTINGS_KEY='paopao-arena-v5.3-mobile-settings';
 
   const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -270,6 +270,17 @@
     if(open)setMobileSettingsOpen(false);
   }
   function netSend(obj){if(net.ws?.readyState===1)net.ws.send(JSON.stringify(obj));}
+  function updateOnlineStatus(){
+    if(!net.connected){onlineStatus.textContent='联机';return;}
+    const ping=net.rtt?`${Math.round(net.rtt)}ms`:'测延迟…';
+    onlineStatus.textContent=net.room?`${net.room} · ${ping}`:ping;
+  }
+  function stopNetPing(){if(net.pingTimer){clearInterval(net.pingTimer);net.pingTimer=null;}}
+  function startNetPing(){
+    stopNetPing();
+    const sendPing=()=>{if(net.ws?.readyState===1){net.lastPingSent=performance.now();netSend({type:'ping',t:Date.now()});}};
+    sendPing();net.pingTimer=setInterval(sendPing,1200);
+  }
   function connectOnline(){
     if(net.ws?.readyState===1)return Promise.resolve();
     const wsOverride=window.__PAOPAO_WS_URL__;
@@ -283,8 +294,8 @@
       setOnlineMessage('正在连接联机服务器…');
       const ws=new WebSocket(wsOverride||`${scheme}://${location.host}/ws`);net.ws=ws;
       const timer=setTimeout(()=>{try{ws.close()}catch{};reject(new Error('timeout'));setOnlineMessage('连接服务器超时，请检查 server.js 是否已启动。','error')},5000);
-      ws.onopen=()=>{clearTimeout(timer);net.connected=true;setOnlineMessage('服务器已连接，可以创建或加入房间。','ok');resolve();};
-      ws.onclose=()=>{net.connected=false;if(net.ws===ws)net.ws=null;if(onlineMode){onlineMode=false;onlineStatus.classList.remove('show');onlineStatus.textContent='联机';difficultyBtn.disabled=false;pushFeed('📡 与服务器断开连接，已返回单机模式','info',3);init();}if(net.room)setOnlineMessage('与服务器断开连接，请重新进入房间。','error');net.room=null;net.hostId=null;};
+      ws.onopen=()=>{clearTimeout(timer);net.connected=true;startNetPing();updateOnlineStatus();setOnlineMessage('服务器已连接，可以创建或加入房间。','ok');resolve();};
+      ws.onclose=()=>{stopNetPing();net.connected=false;net.rtt=0;if(net.ws===ws)net.ws=null;if(onlineMode){onlineMode=false;onlineStatus.classList.remove('show');onlineStatus.textContent='联机';difficultyBtn.disabled=false;pushFeed('📡 与服务器断开连接，已返回单机模式','info',3);init();}if(net.room)setOnlineMessage('与服务器断开连接，请重新进入房间。','error');net.room=null;net.hostId=null;};
       ws.onerror=()=>{setOnlineMessage('无法连接服务器，请确认使用 node server.js 启动。','error');};
       ws.onmessage=e=>handleNetMessage(e.data);
     });
@@ -292,17 +303,21 @@
   function handleNetMessage(raw){
     let m;try{m=JSON.parse(raw)}catch{return;}
     if(m.type==='hello'){net.id=m.id;return;}
+    if(m.type==='pong'){
+      const sample=Math.max(0,Date.now()-Number(m.t||Date.now()));
+      net.rtt=net.rtt?net.rtt*.72+sample*.28:sample;updateOnlineStatus();return;
+    }
     if(m.type==='error'){setOnlineMessage(m.message||'联机操作失败','error');return;}
     if(m.type==='lobby'){
-      net.room=m.code;net.hostId=m.hostId;roomCodeLabel.textContent=m.code;fillBotsToggle.checked=!!m.fillBots;
+      net.room=m.code;net.hostId=m.hostId;roomCodeLabel.textContent=m.code;fillBotsToggle.checked=!!m.fillBots;updateOnlineStatus();
       onlineJoinView.style.display='none';onlineLobbyView.classList.add('show');
       onlinePlayerList.innerHTML=(m.players||[]).map(p=>`<div class="player-chip"><span class="player-dot" style="background:${p.color}"></span><b>${escapeHtml(p.name)}</b><small>${p.id===m.hostId?'房主':p.id===net.id?'你':'玩家'}</small></div>`).join('');
       const host=net.id===m.hostId;startOnlineBtn.disabled=!host;fillBotsToggle.disabled=!host;
       setOnlineMessage(host?'房间已创建。把房间号发给朋友，准备好后开始。':'已加入房间，等待房主开始。','ok');
       return;
     }
-    if(m.type==='started'){setOnlinePanel(false);onlineMode=true;gameOver=false;overlay.classList.remove('show');onlineStatus.classList.add('show');onlineStatus.textContent=`房间 ${net.room||''}`;difficultyBtn.disabled=true;difficultyBtn.textContent='真人对战';pushFeed('🌐 已进入服务器权威联机模式','info',2.4);return;}
-    if(m.type==='state'){applyNetState(m.state);net.lastStateAt=performance.now();return;}
+    if(m.type==='started'){setOnlinePanel(false);onlineMode=true;gameOver=false;overlay.classList.remove('show');onlineStatus.classList.add('show');updateOnlineStatus();difficultyBtn.disabled=true;difficultyBtn.textContent='真人对战';pushFeed('⚡ 低延迟预测已启用 · 服务器仍负责最终判定','info',2.6);return;}
+    if(m.type==='state'){net.lastStateAt=performance.now();applyNetState(m.state);return;}
     if(m.type==='event'){
       if(m.event==='feed'&&m.text)pushFeed(m.text,'info',2.8);
       if(m.event==='explosion'&&m.cells){triggerExplosionShake(m.cells);flashT=Math.max(flashT,.075);audioBeep(95,.12,.04,'sawtooth');}
@@ -313,9 +328,25 @@
   function applyNetState(st){
     if(!st)return;onlineMode=true;map=st.map;countdown=st.countdown||0;
     const prev=new Map((actors||[]).map(a=>[a.id,a]));
-    const incoming=(st.actors||[]).map(a=>{const old=prev.get(a.id);return {...a,x:old?.x??a.x,y:old?.y??a.y,targetX:a.x,targetY:a.y,moveDir:old?.moveDir||{x:0,y:0},bufferDir:null,bufferT:0};});
+    const incoming=(st.actors||[]).map(a=>{
+      const old=prev.get(a.id),local=a.id===net.id;
+      return {...a,
+        x:old?.x??a.x,y:old?.y??a.y,
+        authX:a.x,authY:a.y,targetX:a.x,targetY:a.y,
+        serverMoveDir:a.moveDir||{x:0,y:0},
+        moveDir:old?.moveDir||a.moveDir||{x:0,y:0},
+        bufferDir:old?.bufferDir||null,bufferT:old?.bufferT||0
+      };
+    });
     const me=incoming.find(a=>a.id===net.id);actors=me?[me,...incoming.filter(a=>a!==me)]:incoming;
-    bombs=(st.bombs||[]).map(b=>({...b,owner:null,dead:false,passActors:new Set()}));
+    const now=performance.now();
+    const serverBombs=(st.bombs||[]).map(b=>{
+      const pass=new Set();
+      for(const a of actors)if(a.alive&&Math.floor(a.x)===b.x&&Math.floor(a.y)===b.y)pass.add(a);
+      return {...b,owner:null,dead:false,passActors:pass,optimistic:false};
+    });
+    const optimistic=(bombs||[]).filter(b=>b.optimistic&&now-(b.createdAt||0)<420&&!serverBombs.some(s=>s.ownerId===b.ownerId&&s.x===b.x&&s.y===b.y));
+    bombs=serverBombs.concat(optimistic);
     items=(st.items||[]).map(i=>({...i}));flames=(st.flames||[]).map(f=>({...f,visualOnly:true}));
     if(st.gameOver&&!gameOver)showOnlineEnd(st.winnerId);else if(!st.gameOver){gameOver=false;overlay.classList.remove('show');}
     updateHud();
@@ -329,11 +360,21 @@
   }
   function syncOnlineInput(force=false){
     if(!onlineMode||!net.connected)return;const d=desiredDirection()||{x:0,y:0};const sig=`${d.x},${d.y}`;
-    if(force||sig!==net.lastInput){net.lastInput=sig;netSend({type:'input',dir:d});}
+    if(force||sig!==net.lastInput){net.lastInput=sig;net.inputSeq++;netSend({type:'input',dir:d,seq:net.inputSeq});}
   }
-  function onlineAction(action){if(onlineMode){netSend({type:'action',action});return true;}return false;}
+  function addOptimisticOnlineBomb(){
+    const p=actors?.[0];if(!p?.alive||countdown>0||gameOver||p.activeBombs>=p.bombCap)return;
+    const x=Math.floor(p.x),y=Math.floor(p.y);
+    if(map?.[y]?.[x]!==0||bombAt(x,y))return;
+    bombs.push({id:`pred-${Date.now()}`,x,y,t:p.remote?8.5:1.9,ownerId:net.id,owner:null,range:p.range,remote:!!p.remote,dead:false,pulse:0,
+      passActors:new Set([p]),moving:false,slide:0,kickDir:{x:0,y:0},fromX:x,fromY:y,optimistic:true,createdAt:performance.now()});
+    audioBeep(p.remote?420:280,.04,.018,'triangle');
+  }
+  function onlineAction(action){
+    if(onlineMode){if(action==='bomb')addOptimisticOnlineBomb();netSend({type:'action',action});return true;}return false;
+  }
   function leaveOnline(){
-    netSend({type:'leave'});net.room=null;net.hostId=null;onlineMode=false;onlineStatus.classList.remove('show');difficultyBtn.disabled=false;applyDifficulty(false);
+    netSend({type:'leave'});net.room=null;net.hostId=null;onlineMode=false;onlineStatus.classList.remove('show');updateOnlineStatus();difficultyBtn.disabled=false;applyDifficulty(false);
     onlineLobbyView.classList.remove('show');onlineJoinView.style.display='grid';setOnlinePanel(false);restartHint.textContent='⌨️ 按空格键再来一局';init();
   }
 
@@ -617,6 +658,93 @@
       }
     }
     return false;
+  }
+
+  // 联机本地预测：输入立即在本机移动；服务器快照只负责校正，避免每次移动都等待 RTT。
+  function onlinePredictCanMove(a,dir,probe=.08){
+    const r=.265;
+    if(dir.x){const edge=a.x+dir.x*(r+probe);return !pointBlocked(a,edge,a.y-r+.03)&&!pointBlocked(a,edge,a.y+r-.03);}
+    if(dir.y){const edge=a.y+dir.y*(r+probe);return !pointBlocked(a,a.x-r+.03,edge)&&!pointBlocked(a,a.x+r-.03,edge);}
+    return false;
+  }
+  function tryMoveOnlinePredicted(a,dx,dy,dt){
+    if(!a.alive||(!dx&&!dy))return false;
+    const total=a.speed*dt,steps=Math.max(1,Math.ceil(total/.075)),dist=total/steps,r=.265;let moved=false;
+    for(let i=0;i<steps;i++){
+      if(dx){const nx=a.x+dx*dist,edge=nx+Math.sign(dx)*r;if(!pointBlocked(a,edge,a.y-r+.025)&&!pointBlocked(a,edge,a.y+r-.025)){a.x=nx;moved=true}else break;}
+      if(dy){const ny=a.y+dy*dist,edge=ny+Math.sign(dy)*r;if(!pointBlocked(a,a.x-r+.025,edge)&&!pointBlocked(a,a.x+r-.025,edge)){a.y=ny;moved=true}else break;}
+    }
+    a.x=clamp(a.x,1.27,W-1.27);a.y=clamp(a.y,1.27,H-1.27);
+    bombs.forEach(b=>{if(b.passActors?.has(a)&&(Math.floor(a.x)!==b.x||Math.floor(a.y)!==b.y))b.passActors.delete(a);});
+    return moved;
+  }
+  function onlinePredictTurn(a,dir,dt){
+    const snap=.30,snapSpeed=a.speed*2.7;
+    if(dir.y){
+      const tx=nearestCenter(a.x),off=tx-a.x;
+      if(Math.abs(off)<=snap&&map?.[Math.floor(a.y)+dir.y]?.[Math.floor(tx)]===0){
+        a.x+=clamp(off,-snapSpeed*dt,snapSpeed*dt);if(Math.abs(tx-a.x)<.02)a.x=tx;
+        if(onlinePredictCanMove(a,dir,.05)){a.moveDir={...dir};tryMoveOnlinePredicted(a,dir.x,dir.y,dt);return true;}
+      }
+    }else if(dir.x){
+      const ty=nearestCenter(a.y),off=ty-a.y;
+      if(Math.abs(off)<=snap&&map?.[Math.floor(ty)]?.[Math.floor(a.x)+dir.x]===0){
+        a.y+=clamp(off,-snapSpeed*dt,snapSpeed*dt);if(Math.abs(ty-a.y)<.02)a.y=ty;
+        if(onlinePredictCanMove(a,dir,.05)){a.moveDir={...dir};tryMoveOnlinePredicted(a,dir.x,dir.y,dt);return true;}
+      }
+    }
+    return false;
+  }
+  function updateOnlinePredictedPlayer(a,dt){
+    const desired=desiredDirection();
+    if(!desired){a.moveDir={x:0,y:0};a.bufferDir=null;a.bufferT=0;return;}
+    if(sameDir(a.moveDir,desired)||opposite(a.moveDir,desired)||(!a.moveDir.x&&!a.moveDir.y)){
+      if(onlinePredictCanMove(a,desired,.04))a.moveDir={...desired};
+    }else if(perpendicular(a.moveDir,desired)){
+      if(onlinePredictTurn(a,desired,dt)){a.bufferDir=null;a.bufferT=0;return;}
+      a.bufferDir={...desired};a.bufferT=.30;
+    }
+    if(a.bufferDir){
+      a.bufferT-=dt;
+      if(onlinePredictTurn(a,a.bufferDir,dt)){a.bufferDir=null;a.bufferT=0;return;}
+      if(a.bufferT<=0)a.bufferDir=null;
+    }
+    if(a.moveDir.x||a.moveDir.y){
+      if(!tryMoveOnlinePredicted(a,a.moveDir.x,a.moveDir.y,dt)){
+        if(!onlinePredictTurn(a,desired,dt)){
+          if(onlinePredictCanMove(a,desired,.03)){a.moveDir={...desired};tryMoveOnlinePredicted(a,desired.x,desired.y,dt);}
+          else a.moveDir={x:0,y:0};
+        }
+      }
+    }
+  }
+  function reconcileOnlineLocal(a,dt){
+    if(!Number.isFinite(a.authX)||!Number.isFinite(a.authY))return;
+    const dx=a.authX-a.x,dy=a.authY-a.y,dist=Math.hypot(dx,dy);
+    if(dist>.90){a.x=a.authX;a.y=a.authY;return;}
+    const desired=desiredDirection();
+    if(!desired){
+      const k=clamp(dt*12,0,1);a.x+=dx*k;a.y+=dy*k;return;
+    }
+    const along=dx*desired.x+dy*desired.y;
+    const ax=desired.x*along,ay=desired.y*along;
+    const px=dx-ax,py=dy-ay;
+    const pk=clamp(dt*10,0,1);a.x+=px*pk;a.y+=py*pk;
+    if(along>0){
+      const k=clamp(dt*6.5,0,1);a.x+=ax*k;a.y+=ay*k;
+    }else{
+      // 本地位置领先服务器属于预测的正常现象；只在领先过多时轻柔拉回。
+      const maxLead=.12+a.speed*clamp((net.rtt||120)/1000,0,.32)*.62;
+      const excess=-along-maxLead;
+      if(excess>0){const back=Math.min(excess,a.speed*dt*1.8);a.x-=desired.x*back;a.y-=desired.y*back;}
+    }
+  }
+  function updateOnlineRemote(a,dt){
+    if(!Number.isFinite(a.targetX))return;
+    const age=clamp((performance.now()-net.lastStateAt)/1000,0,.10);
+    const md=a.serverMoveDir||{x:0,y:0};
+    const tx=a.targetX+md.x*a.speed*age*.45,ty=a.targetY+md.y*a.speed*age*.45;
+    const k=clamp(dt*(net.rtt>180?15:18),0,1);a.x+=(tx-a.x)*k;a.y+=(ty-a.y)*k;
   }
 
   function setHeldDirection(key,on){
@@ -1046,10 +1174,15 @@
     elapsed+=dt;shakeT=Math.max(0,shakeT-dt);flashT=Math.max(0,flashT-dt);if(shakeT<=0){shakePower=0;shakeDuration=.14;}
     killMessages.forEach(m=>m.t-=dt);const oldLen=killMessages.length;killMessages=killMessages.filter(m=>m.t>0);if(killMessages.length!==oldLen)renderFeed();
     if(onlineMode){
-      if(!gameOver&&!mobileSettings.classList.contains('show'))syncOnlineInput();else if(mobileSettings.classList.contains('show')){const old=net.lastInput;net.lastInput='';if(old!=='0,0')netSend({type:'input',dir:{x:0,y:0}});}
+      const paused=mobileSettings.classList.contains('show');
+      if(!gameOver&&!paused)syncOnlineInput();else if(paused){const old=net.lastInput;net.lastInput='';if(old!=='0,0')netSend({type:'input',dir:{x:0,y:0}});}
       if(countdown>0)countdown=Math.max(0,countdown-dt);
-      actors.forEach(a=>{if(Number.isFinite(a.targetX)){const speed=a.id===net.id?18:11,k=clamp(dt*speed,0,1);a.x+=(a.targetX-a.x)*k;a.y+=(a.targetY-a.y)*k;}a.inv=Math.max(0,(a.inv||0)-dt);a.kickPulse=Math.max(0,(a.kickPulse||0)-dt);});
+      const me=actors.find(a=>a.id===net.id)||actors[0];
+      if(me?.alive&&!gameOver&&!paused&&countdown<=0)updateOnlinePredictedPlayer(me,dt);
+      if(me)reconcileOnlineLocal(me,dt);
+      actors.forEach(a=>{if(a!==me)updateOnlineRemote(a,dt);a.inv=Math.max(0,(a.inv||0)-dt);a.kickPulse=Math.max(0,(a.kickPulse||0)-dt);});
       bombs.forEach(b=>{b.t=Math.max(0,b.t-dt);b.pulse=(b.pulse||0)+dt*8;if(b.moving)b.slide=Math.min(1,(b.slide||0)+dt*6.1)});
+      bombs=bombs.filter(b=>!b.optimistic||performance.now()-(b.createdAt||0)<500);
       items.forEach(i=>{i.t=Math.max(0,(i.t||0)-dt);i.bob=(i.bob||0)+dt*4});
       flames.forEach(f=>f.t-=dt);flames=flames.filter(f=>f.t>0);
       particles.forEach(p=>{p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96});particles=particles.filter(p=>p.t>0);
@@ -1282,6 +1415,7 @@
     forceExplode:(id)=>{const b=bombs.find(b=>b.id===id);if(b){explode(b);return true}return false;},
     finish:(win=false)=>{finish(!!win);return true;},
     shake:()=>({t:shakeT,duration:shakeDuration,power:shakePower,strength:shakeStrength,offset:shakeOffset()}),
+    network:()=>({connected:net.connected,room:net.room,rtt:net.rtt,lastStateAge:performance.now()-net.lastStateAt}),
     mobileSettings:()=>({controls:mobileControlScale,shake:shakeStrength,moveMode:mobileMoveMode,joystickDir,open:mobileSettings.classList.contains('show')}),
     setMoveMode:(mode)=>{setMobileMoveMode(mode,false);return mobileMoveMode;},
     setMobileSettings:(controls,shake)=>{if(Number.isFinite(controls))mobileControlScale=clamp(controls,.8,1.3);if(Number.isFinite(shake))shakeStrength=clamp(shake,0,1);updateSettingsLabels();saveMobileSettings();updateMobileLayout();return {controls:mobileControlScale,shake:shakeStrength,moveMode:mobileMoveMode};}
