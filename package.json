@@ -1,8 +1,8 @@
 {
   "name": "paopao-arena-online",
-  "version": "6.2.0",
+  "version": "7.0.0",
   "private": true,
-  "description": "泡泡竞技场 v6.2 低延迟公网联机版",
+  "description": "泡泡竞技场 v6.2 P2P线路诊断版",
   "engines": {
     "node": ">=18"
   },
